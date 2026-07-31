@@ -1,0 +1,36 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-venv python3-gi gir1.2-gtk-3.0 python3-gi-cairo \
+            xvfb libnotify-bin
+
+      - name: Create virtual environment
+        run: python3 -m venv --system-site-packages .venv
+
+      - name: Install Talkeys with dev dependencies
+        run: .venv/bin/pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: .venv/bin/python -m ruff check src/ tests/
+
+      - name: Type-check with mypy
+        run: .venv/bin/python -m mypy src/talkeys tests/
+
+      # pytest's addopts (pyproject.toml) run coverage and fail the build
+      # under 98% — a PR that drops coverage fails here, not just locally.
+      - name: Run tests with coverage
+        run: xvfb-run --auto-servernum .venv/bin/python -m pytest

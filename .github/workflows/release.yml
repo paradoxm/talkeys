@@ -1,0 +1,29 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Only one release run at a time — a second push landing mid-release must
+# wait, not race the same version bump.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Parses commit messages since the last release (feat:, fix:,
+      # docs:, ... — see CONTRIBUTING.md) to decide whether to bump the
+      # version in pyproject.toml, tag it, and publish a GitHub release.
+      - name: Python Semantic Release
+        uses: python-semantic-release/python-semantic-release@v9
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}

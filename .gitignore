@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytest_cache/
+.coverage
+.ruff_cache/
+*.egg-info/
+build/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store

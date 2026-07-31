@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "talkeys"
+version = "0.1.0"
+description = "Offline push-to-talk voice dictation for Linux, built on nerd-dictation + VOSK"
+requires-python = ">=3.10"
+# GTK/GObject-introspection bindings (`gi`, `cairo`) come from the system
+# package manager (python3-gi, gir1.2-gtk-3.0, python3-gi-cairo — see
+# install.sh), not pip: PyGObject's wheel build needs girepository's C
+# headers, which most distros don't ship, and the apt package is already
+# a prebuilt binding against the system's own GTK. The venv is created
+# with --system-site-packages so it can still see them.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "ruff", "mypy"]
+
+[project.scripts]
+talkeys-toggle = "talkeys.cli.toggle:main"
+talkeys-switch-lang = "talkeys.cli.switch_lang:main"
+talkeys-indicator = "talkeys.cli.indicator:main"
+talkeys-bind-hotkeys = "talkeys.cli.bind_hotkeys:main"
+talkeys-unbind-hotkeys = "talkeys.cli.unbind_hotkeys:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+talkeys = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=talkeys --cov-report=term-missing --cov-fail-under=98"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+# PyGObject requires gi.require_version(...) to run before the matching
+# `from gi.repository import ...` — there is no reordering that satisfies
+# both this API constraint and E402.
+"src/talkeys/indicator.py" = ["E402"]
+"src/talkeys/keybindings/cinnamon.py" = ["E402"]
+"src/talkeys/keybindings/gnome.py" = ["E402"]
+"src/talkeys/cli/indicator.py" = ["E402"]
+"tests/test_indicator.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "src"
+
+# PyGObject ships no type stubs and no py.typed marker at all — there is
+# nothing to check against, and no per-file-ignore can add stubs that
+# don't exist.
+[[tool.mypy.overrides]]
+module = "gi.*"
+ignore_missing_imports = true
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+build_command = false
