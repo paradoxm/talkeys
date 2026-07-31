@@ -13,7 +13,7 @@ track and clean up.
 import subprocess
 import threading
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from . import audio
 
@@ -43,7 +43,7 @@ class SilenceWatchdog(threading.Thread):
     def __init__(self, on_silence_detected: Callable[[], None]):
         super().__init__(daemon=True)
         self._on_silence_detected = on_silence_detected
-        self._process: Optional[subprocess.Popen] = None
+        self._process: subprocess.Popen | None = None
 
     def run(self) -> None:
         self._process = subprocess.Popen(

@@ -7,22 +7,22 @@ import fcntl
 import os
 import signal
 import subprocess
-from typing import IO, Optional
+from typing import IO
 
 from . import paths
 
 
 def toggle() -> None:
-    lock_file = _try_acquire_lock()
-    if lock_file is None:
-        return
-    try:
+    with open(paths.TOGGLE_LOCK_FILE, "w") as lock_file:
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return  # another invocation is already handling this press
+
         if is_recording():
             stop_recording()
         else:
             start_recording()
-    finally:
-        lock_file.close()
 
 
 def is_recording() -> bool:
@@ -39,18 +39,20 @@ def start_recording() -> None:
         ["pkill", "-f", str(paths.INDICATOR_BIN)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
+        check=False,
     )
 
-    log_file = open(paths.LOG_FILE, "a")
-    indicator_process = _spawn_detached([str(paths.INDICATOR_BIN)], log_file)
-    # The marker's content is the indicator's PID, so an external stop can
-    # signal that exact process directly — no pattern matching needed for
-    # the common path. Written while `toggle()` still holds the lock, so a
-    # repeat press racing in right behind this one sees "recording" (and
-    # the right PID) immediately, without waiting on anything to fork.
-    paths.RECORDING_MARKER.write_text(str(indicator_process.pid))
+    with open(paths.LOG_FILE, "a") as log_file:
+        indicator_process = _spawn_detached([str(paths.INDICATOR_BIN)], log_file)
+        # The marker's content is the indicator's PID, so an external stop
+        # can signal that exact process directly — no pattern matching
+        # needed for the common path. Written while `toggle()` still holds
+        # the lock, so a repeat press racing in right behind this one sees
+        # "recording" (and the right PID) immediately, without waiting on
+        # anything to fork.
+        paths.RECORDING_MARKER.write_text(str(indicator_process.pid))
 
-    _spawn_detached(_nerd_dictation_begin_command(), log_file)
+        _spawn_detached(_nerd_dictation_begin_command(), log_file)
 
 
 def stop_recording() -> None:
@@ -68,10 +70,12 @@ def stop_recording() -> None:
 
 def end_dictation() -> None:
     paths.RECORDING_MARKER.unlink(missing_ok=True)
-    subprocess.run([str(paths.VENV_PYTHON), str(paths.NERD_DICTATION_BIN), "end"])
+    subprocess.run(
+        [str(paths.VENV_PYTHON), str(paths.NERD_DICTATION_BIN), "end"], check=False
+    )
 
 
-def _read_indicator_pid() -> Optional[int]:
+def _read_indicator_pid() -> int | None:
     try:
         return int(paths.RECORDING_MARKER.read_text().strip())
     except (FileNotFoundError, ValueError):
@@ -83,16 +87,6 @@ def _terminate_process(pid: int) -> None:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass  # already gone
-
-
-def _try_acquire_lock() -> Optional[IO]:
-    lock_file = open(paths.TOGGLE_LOCK_FILE, "w")
-    try:
-        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        lock_file.close()
-        return None
-    return lock_file
 
 
 def _nerd_dictation_begin_command() -> list:

@@ -7,7 +7,8 @@ import pytest
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 
-from talkeys import indicator as indicator_module, recorder
+from talkeys import indicator as indicator_module
+from talkeys import recorder
 from talkeys.indicator import Indicator
 
 

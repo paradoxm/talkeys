@@ -1,6 +1,6 @@
 import pytest
-
 from fakes import FakeSettingsRegistry
+
 from talkeys.keybindings.base import KeybindingTarget
 from talkeys.keybindings.gnome import ENTRY_SCHEMA, PATH_BASE, SCHEMA, GnomeKeybindings
 

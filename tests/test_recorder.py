@@ -131,15 +131,12 @@ def test_toggle_does_nothing_when_another_invocation_already_holds_the_lock(monk
     # A real flock on a real file, not a mock: this is exactly the
     # observable behavior that matters (a concurrent press is a no-op),
     # and flock is cheap and deterministic to exercise for real.
-    concurrent_lock_holder = open(paths.TOGGLE_LOCK_FILE, "w")
-    fcntl.flock(concurrent_lock_holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
     monkeypatch.setattr(recorder, "start_recording", MagicMock())
     monkeypatch.setattr(recorder, "stop_recording", MagicMock())
 
-    try:
+    with open(paths.TOGGLE_LOCK_FILE, "w") as concurrent_lock_holder:
+        fcntl.flock(concurrent_lock_holder, fcntl.LOCK_EX | fcntl.LOCK_NB)
         recorder.toggle()
-    finally:
-        concurrent_lock_holder.close()
 
     recorder.start_recording.assert_not_called()
     recorder.stop_recording.assert_not_called()

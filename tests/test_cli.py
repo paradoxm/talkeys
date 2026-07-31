@@ -4,7 +4,8 @@ import sys
 from unittest.mock import MagicMock
 
 from talkeys import keybindings, paths, recorder
-from talkeys.cli import bind_hotkeys, indicator as cli_indicator, switch_lang, toggle, unbind_hotkeys
+from talkeys.cli import bind_hotkeys, switch_lang, toggle, unbind_hotkeys
+from talkeys.cli import indicator as cli_indicator
 
 
 def test_toggle_main_delegates_to_recorder_toggle(monkeypatch):
@@ -39,7 +40,7 @@ def test_switch_lang_main_shows_a_notification_naming_the_new_language(monkeypat
     monkeypatch.setattr(paths, "get_lang", MagicMock(return_value="ru"))
     monkeypatch.setattr(paths, "set_lang", MagicMock())
     run_calls = []
-    monkeypatch.setattr(subprocess, "run", lambda command: run_calls.append(command))
+    monkeypatch.setattr(subprocess, "run", lambda command, **_kwargs: run_calls.append(command))
 
     switch_lang.main()
 

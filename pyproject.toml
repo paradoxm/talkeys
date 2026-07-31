@@ -62,4 +62,4 @@ ignore_missing_imports = true
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
-build_command = false
+build_command = ""
