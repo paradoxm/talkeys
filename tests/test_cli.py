@@ -3,9 +3,16 @@ import subprocess
 import sys
 from unittest.mock import MagicMock
 
+import pytest
+
 from talkeys import keybindings, paths, recorder
 from talkeys.cli import bind_hotkeys, switch_lang, toggle, unbind_hotkeys
 from talkeys.cli import indicator as cli_indicator
+
+
+@pytest.fixture(autouse=True)
+def no_real_renice(monkeypatch):
+    monkeypatch.setattr(cli_indicator.os, "nice", MagicMock())
 
 
 def test_toggle_main_delegates_to_recorder_toggle(monkeypatch):
@@ -112,6 +119,7 @@ def test_indicator_main_shows_the_window_and_runs_the_gtk_main_loop(monkeypatch)
 
     fake_window.show_all.assert_called_once()
     cli_indicator.Gtk.main.assert_called_once()
+    cli_indicator.os.nice.assert_called_once_with(10)  # recognition yields CPU to the desktop
 
 
 def test_indicator_main_shuts_the_window_down_on_sigterm(monkeypatch):

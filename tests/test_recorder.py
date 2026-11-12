@@ -14,8 +14,6 @@ def isolated_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "TOGGLE_LOCK_FILE", tmp_path / "toggle.lock")
     monkeypatch.setattr(paths, "LOG_FILE", tmp_path / "dictate.log")
     monkeypatch.setattr(paths, "INDICATOR_BIN", tmp_path / "venv/bin/talkeys-indicator")
-    monkeypatch.setattr(paths, "VENV_PYTHON", tmp_path / "venv/bin/python")
-    monkeypatch.setattr(paths, "NERD_DICTATION_BIN", tmp_path / "nerd-dictation/nerd-dictation")
 
 
 @pytest.fixture(autouse=True)
@@ -42,7 +40,7 @@ def test_start_recording_writes_the_spawned_indicators_pid_into_the_marker(monke
     assert paths.RECORDING_MARKER.read_text() == "4242"
 
 
-def test_start_recording_spawns_the_indicator_and_then_nerd_dictation(monkeypatch):
+def test_start_recording_spawns_only_the_indicator(monkeypatch):
     spawned_commands = []
 
     def fake_popen(command, **_kwargs):
@@ -53,10 +51,7 @@ def test_start_recording_spawns_the_indicator_and_then_nerd_dictation(monkeypatc
 
     recorder.start_recording()
 
-    assert spawned_commands[0] == [str(paths.INDICATOR_BIN)]
-    assert spawned_commands[1][0] == str(paths.VENV_PYTHON)
-    assert str(paths.NERD_DICTATION_BIN) in spawned_commands[1]
-    assert "begin" in spawned_commands[1]
+    assert spawned_commands == [[str(paths.INDICATOR_BIN)]]
 
 
 def test_stop_recording_removes_the_marker_file(monkeypatch):

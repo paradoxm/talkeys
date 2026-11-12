@@ -43,16 +43,6 @@ def test_set_lang_creates_the_config_directory_if_missing(isolated_lang_file):
     assert paths.CONFIG_DIR.exists()
 
 
-def test_model_dir_for_current_lang_matches_the_stored_language(isolated_lang_file):
-    paths.set_lang("en")
-
-    assert paths.model_dir_for_current_lang() == paths.MODEL_DIR_BY_LANG["en"]
-
-
-def test_model_dir_for_current_lang_defaults_to_russian_model():
-    assert paths.model_dir_for_current_lang() == paths.MODEL_DIR_BY_LANG["ru"]
-
-
 def test_state_files_live_in_the_per_user_runtime_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
     try:

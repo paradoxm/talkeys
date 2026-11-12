@@ -1,3 +1,4 @@
+import os
 import signal
 import sys
 
@@ -10,6 +11,8 @@ from ..indicator import Indicator
 
 
 def main() -> None:
+    # Recognition is heavy; the desktop must stay responsive while it runs.
+    os.nice(10)
     window = Indicator()
     window.show_all()
 
