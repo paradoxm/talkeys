@@ -154,7 +154,11 @@ older nerd-dictation-based versions of Talkeys are removed too.
 | `stt.py` | Model loading and recognition (`onnx-asr`) |
 | `text_processing.py` | Joining phrases into running text |
 | `paste.py` | Clipboard paste into the focused window |
+| `audio.py` | Loudness (RMS) of a chunk of audio |
+| `paths.py` | File locations, the language setting, the session marker |
+| `desktop.py` | Detects Cinnamon or GNOME |
 | `keybindings/` | Cinnamon/GNOME hotkey binding |
+| `cli/` | The `talkeys-*` commands (entry points) |
 
 ## Development
 
