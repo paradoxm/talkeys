@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "talkeys"
-version = "0.1.0"
+version = "0.1.1"
 description = "Offline push-to-talk voice dictation for Linux, built on nerd-dictation + VOSK"
 requires-python = ">=3.10"
 # GTK/GObject-introspection bindings (`gi`, `cairo`) come from the system
