@@ -1,5 +1,7 @@
 """Filesystem locations and small pieces of persistent state shared across
 the toggle, indicator, and watchdog processes."""
+import os
+import tempfile
 from pathlib import Path
 
 NERD_DIR = Path.home() / ".local/share/nerd-dictation"
@@ -24,8 +26,13 @@ LOG_FILE = NERD_DIR / "dictate.log"
 # since a just-forked process isn't visible to it until fork+exec
 # actually completes, which under load can take long enough for a fast
 # repeat press to slip through and start a second copy.
-RECORDING_MARKER = Path("/tmp/dictate-recording.marker")
-TOGGLE_LOCK_FILE = Path("/tmp/dictate-toggle.lock")
+#
+# Both live in the per-user runtime dir: only this user can write there, and
+# it's wiped at logout, so a marker left by a session killed mid-recording
+# can't make the next login's first press "stop" a stale PID.
+STATE_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir())
+RECORDING_MARKER = STATE_DIR / "dictate-recording.marker"
+TOGGLE_LOCK_FILE = STATE_DIR / "dictate-toggle.lock"
 
 MODEL_DIR_BY_LANG = {
     "en": MODELS_DIR / "vosk-model-small-en-us-0.15",

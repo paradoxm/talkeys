@@ -1,3 +1,5 @@
+import importlib
+
 import pytest
 
 from talkeys import paths
@@ -49,3 +51,14 @@ def test_model_dir_for_current_lang_matches_the_stored_language(isolated_lang_fi
 
 def test_model_dir_for_current_lang_defaults_to_russian_model():
     assert paths.model_dir_for_current_lang() == paths.MODEL_DIR_BY_LANG["ru"]
+
+
+def test_state_files_live_in_the_per_user_runtime_dir(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))
+    try:
+        reloaded = importlib.reload(paths)
+        assert reloaded.RECORDING_MARKER.parent == tmp_path
+        assert reloaded.TOGGLE_LOCK_FILE.parent == tmp_path
+    finally:
+        monkeypatch.undo()
+        importlib.reload(paths)
