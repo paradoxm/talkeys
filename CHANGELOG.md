@@ -1,6 +1,26 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-11-12)
+
+### Features
+
+- Replace nerd-dictation + VOSK with GigaAM-v3 via onnx-asr
+  ([#2](https://github.com/paradoxm/talkeys/pull/2),
+  [`7e93468`](https://github.com/paradoxm/talkeys/commit/7e9346815ada2ca0686298769fc52e60397152e1))
+
+- recognize Russian with GigaAM-v3 e2e (punctuation and capitals built in) and English with Parakeet
+  TDT v3 int8, through onnx-asr on the CPU - show a live draft of the phrase in the overlay; paste
+  each finished phrase once through the clipboard after a ~0.8s pause instead of retyping character
+  by character with xdotool - recognize each phrase together with the last 3s of the previous one
+  and keep only the new words, so pauses mid-sentence keep the grammar - end a session after 2
+  minutes even if it never goes quiet - silence detection: ignore parec's initial digital zeros,
+  lower the absolute floor so quiet microphones are not read as silence - run recognition at nice 10
+  on half the cores - download models into the app folder; drop nerd-dictation, VOSK and the
+  nerd-dictation hook; uninstall removes leftovers of older versions - rewrite the README for the
+  new engine
+
+
 ## v0.1.1 (2026-11-12)
 
 ### Bug Fixes
