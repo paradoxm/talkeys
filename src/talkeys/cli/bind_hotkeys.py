@@ -23,6 +23,8 @@ def main() -> int:
         print(f"  Ctrl+Shift+R  -> {paths.SWITCH_LANG_BIN}")
         return 1
 
+    # Drop our own earlier bindings first, so re-running install doesn't stack duplicates.
+    backend.unbind_matching({target.command for target in TARGETS})
     backend.bind(TARGETS)
     print("Bound Super+R (toggle) and Ctrl+Shift+R (switch language).")
     return 0

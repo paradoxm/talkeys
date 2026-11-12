@@ -68,8 +68,11 @@ fi
 
 echo "==> Installing nerd-dictation's text-processing hook"
 # nerd-dictation loads this exact path itself; it can't be a normal part
-# of the installed package (see config/nerd-dictation.py for why).
-cp "$SCRIPT_DIR/config/nerd-dictation.py" "$CONFIG_DIR/"
+# of the installed package (see config/nerd-dictation.py for why). A
+# different file already there (e.g. the user's own nerd-dictation hook)
+# is kept as nerd-dictation.py.~N~ rather than silently overwritten.
+cmp -s "$SCRIPT_DIR/config/nerd-dictation.py" "$CONFIG_DIR/nerd-dictation.py" \
+  || cp --backup=numbered "$SCRIPT_DIR/config/nerd-dictation.py" "$CONFIG_DIR/"
 [ -f "$CONFIG_DIR/lang" ] || echo ru > "$CONFIG_DIR/lang"
 
 echo

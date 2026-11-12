@@ -48,6 +48,19 @@ def test_switch_lang_main_shows_a_notification_naming_the_new_language(monkeypat
     assert run_calls[0][-1] == "en"
 
 
+def test_bind_hotkeys_main_removes_its_own_old_bindings_before_binding(monkeypatch):
+    fake_backend = MagicMock()
+    monkeypatch.setattr(keybindings, "get_backend", MagicMock(return_value=fake_backend))
+
+    bind_hotkeys.main()
+
+    assert [call[0] for call in fake_backend.method_calls] == ["unbind_matching", "bind"]
+    assert fake_backend.unbind_matching.call_args[0][0] == {
+        str(paths.TOGGLE_BIN),
+        str(paths.SWITCH_LANG_BIN),
+    }
+
+
 def test_bind_hotkeys_main_binds_the_toggle_and_switch_lang_targets(monkeypatch):
     fake_backend = MagicMock()
     monkeypatch.setattr(keybindings, "get_backend", MagicMock(return_value=fake_backend))

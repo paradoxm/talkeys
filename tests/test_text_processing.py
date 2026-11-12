@@ -96,10 +96,11 @@ def test_empty_text_as_the_very_first_call_has_no_leading_space():
     assert result == ""
 
 
-def test_a_more_lenient_shrink_ratio_treats_smaller_drops_as_new_utterances():
-    lenient_fixer = SpacingFixer(shrink_ratio=0.9)
-    lenient_fixer.process("recognize speech")  # 17 characters
+def test_a_longer_utterance_after_a_short_one_gets_a_leading_space():
+    # "ok" then "thanks": the text never shrinks, only the first word changes.
+    fixer = SpacingFixer()
+    fixer.process("ok")
 
-    result = lenient_fixer.process("recognize spee")  # 14 characters, drop to ~82%
+    result = fixer.process("thanks")
 
-    assert result == " recognize spee"
+    assert result == " thanks"

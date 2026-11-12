@@ -1,4 +1,4 @@
-name: Test
+name: CI
 
 on:
   push:
@@ -34,3 +34,29 @@ jobs:
       # under 98% — a PR that drops coverage fails here, not just locally.
       - name: Run tests with coverage
         run: xvfb-run --auto-servernum .venv/bin/python -m pytest
+
+  # Only after the tests pass, and only for pushes to main — a broken
+  # commit must not get a version tag.
+  release:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Only one release run at a time — a second push landing mid-release must
+    # wait, not race the same version bump.
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Parses Conventional Commits messages since the last release (feat:,
+      # fix:, docs:, ...) to decide whether to bump the version in
+      # pyproject.toml, tag it, and publish a GitHub release.
+      - name: Python Semantic Release
+        uses: python-semantic-release/python-semantic-release@v9
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}

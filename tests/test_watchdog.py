@@ -48,7 +48,7 @@ def chunk_count_spanning(seconds):
 
 def make_watchdog(monkeypatch, chunks):
     clock = FakeClock()
-    monkeypatch.setattr(time, "time", clock)
+    monkeypatch.setattr(time, "monotonic", clock)
     process = MagicMock()
     process.stdout = ScriptedMicrophone(chunks, clock, watchdog.CHUNK_SECONDS)
     monkeypatch.setattr(subprocess, "Popen", MagicMock(return_value=process))
@@ -57,7 +57,7 @@ def make_watchdog(monkeypatch, chunks):
 
 
 def test_fires_the_callback_once_silence_lasts_the_full_threshold(monkeypatch):
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
+    calibration = silent_chunk()
     full_threshold_of_silence = [silent_chunk()] * chunk_count_spanning(watchdog.SILENCE_SECONDS)
     watch, on_silence_detected, _process = make_watchdog(
         monkeypatch, [calibration] + full_threshold_of_silence
@@ -69,13 +69,10 @@ def test_fires_the_callback_once_silence_lasts_the_full_threshold(monkeypatch):
 
 
 def test_does_not_fire_before_silence_has_lasted_the_full_threshold(monkeypatch):
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
     one_chunk_short_of_threshold = [silent_chunk()] * (
         chunk_count_spanning(watchdog.SILENCE_SECONDS) - 1
     )
-    watch, on_silence_detected, _process = make_watchdog(
-        monkeypatch, [calibration] + one_chunk_short_of_threshold
-    )
+    watch, on_silence_detected, _process = make_watchdog(monkeypatch, one_chunk_short_of_threshold)
 
     watch.run()
 
@@ -83,7 +80,7 @@ def test_does_not_fire_before_silence_has_lasted_the_full_threshold(monkeypatch)
 
 
 def test_loud_audio_resets_the_silence_timer(monkeypatch):
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
+    calibration = silent_chunk()
     half_the_threshold = [silent_chunk()] * chunk_count_spanning(watchdog.SILENCE_SECONDS / 2 - 1)
     chunks = (
         [calibration]
@@ -102,7 +99,7 @@ def test_calibrating_against_a_loud_room_raises_the_silence_threshold(monkeypatc
     # Ambient noise loud enough that a fixed threshold would never
     # classify it as silence — calibration must raise the bar to match,
     # so audio at that same ambient level still reads as "silent".
-    loud_ambient_calibration = loud_chunk(watchdog.CALIBRATION_BYTES)
+    loud_ambient_calibration = loud_chunk()
     chunks_at_ambient_level = [loud_chunk()] * chunk_count_spanning(watchdog.SILENCE_SECONDS)
     watch, on_silence_detected, _process = make_watchdog(
         monkeypatch, [loud_ambient_calibration] + chunks_at_ambient_level
@@ -116,7 +113,7 @@ def test_calibrating_against_a_loud_room_raises_the_silence_threshold(monkeypatc
 def test_never_treats_ambient_noise_as_silence_below_the_absolute_floor(monkeypatch):
     # A silent room's calibration must not push the threshold to zero —
     # genuinely soft speech should still count as "not silence".
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
+    calibration = silent_chunk()
     soft_speech_amplitude = int(watchdog.SILENCE_RMS_FLOOR) + 50
     speech_chunk = soft_speech_amplitude.to_bytes(2, "little", signed=True) * (
         watchdog.CHUNK_BYTES // 2
@@ -130,7 +127,7 @@ def test_never_treats_ambient_noise_as_silence_below_the_absolute_floor(monkeypa
 
 
 def test_terminates_its_parec_process_when_the_stream_ends_on_its_own(monkeypatch):
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
+    calibration = silent_chunk()
     watch, _on_silence_detected, process = make_watchdog(monkeypatch, [calibration])
 
     watch.run()
@@ -139,7 +136,7 @@ def test_terminates_its_parec_process_when_the_stream_ends_on_its_own(monkeypatc
 
 
 def test_stop_terminates_the_parec_process(monkeypatch):
-    calibration = silent_chunk(watchdog.CALIBRATION_BYTES)
+    calibration = silent_chunk()
     watch, _on_silence_detected, process = make_watchdog(monkeypatch, [calibration])
     watch.run()
     process.terminate.reset_mock()
@@ -153,3 +150,18 @@ def test_stop_before_the_watchdog_has_started_does_not_raise():
     watch = watchdog.SilenceWatchdog(on_silence_detected=MagicMock())
 
     watch.stop()  # must not raise
+
+
+def test_speech_from_the_very_first_moment_is_not_mistaken_for_the_room_noise(monkeypatch):
+    # The user starts talking right at the hotkey press: there is no quiet
+    # lead-in to learn the room from, only the short gaps between words.
+    word_bytes = watchdog.CHUNK_BYTES - watchdog.WINDOW_BYTES
+    word = (2000).to_bytes(2, "little", signed=True) * (word_bytes // 2)
+    gap = silent_chunk(watchdog.WINDOW_BYTES)
+    talking_chunk = word + gap
+    chunks = [talking_chunk] * chunk_count_spanning(2 * watchdog.SILENCE_SECONDS)
+    watch, on_silence_detected, _process = make_watchdog(monkeypatch, chunks)
+
+    watch.run()
+
+    on_silence_detected.assert_not_called()
