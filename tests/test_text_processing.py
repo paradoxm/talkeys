@@ -1,106 +1,31 @@
-from talkeys.text_processing import SpacingFixer
+from talkeys.text_processing import join
 
 
-def test_the_first_utterance_of_a_session_has_no_leading_space():
-    fixer = SpacingFixer()
-
-    result = fixer.process("hello")
-
-    assert result == "hello"
+def test_the_first_phrase_is_inserted_as_is():
+    assert join("", "Привет, мир.") == "Привет, мир."
 
 
-def test_a_growing_partial_hypothesis_within_one_utterance_keeps_no_leading_space():
-    fixer = SpacingFixer()
-    fixer.process("hello")
-
-    result = fixer.process("hello world")
-
-    assert result == "hello world"
+def test_a_phrase_after_a_finished_sentence_keeps_its_capital_and_gets_a_space():
+    assert join("Привет.", "Как дела?") == " Как дела?"
 
 
-def test_a_new_utterance_after_a_finalized_one_gets_a_leading_space():
-    fixer = SpacingFixer()
-    fixer.process("hello world")  # grows, then nerd-dictation finalizes it
-
-    result = fixer.process("hi")  # nerd-dictation reset its own diff state here
-
-    assert result == " hi"
+def test_a_phrase_continuing_a_sentence_is_lowercased():
+    assert join("наверное, надеюсь", "Решить, какую модель.") == " решить, какую модель."
 
 
-def test_the_leading_space_persists_while_the_new_utterance_keeps_growing():
-    fixer = SpacingFixer()
-    fixer.process("hello world")
-    fixer.process("hi")
-
-    result = fixer.process("hi there")
-
-    assert result == " hi there"
+def test_abbreviations_in_capitals_are_left_alone():
+    assert join("используем", "API для записи") == " API для записи"
 
 
-def test_every_utterance_after_the_first_gets_a_leading_space():
-    fixer = SpacingFixer()
-    fixer.process("hello there")  # first utterance sets a peak length
-    fixer.process("hi")  # second utterance, short enough to trip the boundary
-
-    result = fixer.process("hey")  # third utterance
-
-    assert result == " hey"
+def test_question_and_exclamation_marks_end_a_sentence_too():
+    assert join("Правда?", "Да") == " Да"
+    assert join("Ура!", "Работает") == " Работает"
 
 
-def test_a_minor_downward_wobble_within_an_utterance_does_not_insert_a_space():
-    # VOSK's partial hypothesis can occasionally shrink slightly within a
-    # single utterance as the decoder revises it. A bare "shorter than the
-    # last call" check would misread this as a new utterance boundary and
-    # insert a space mid-word; the shrink-ratio heuristic must not.
-    fixer = SpacingFixer()
-    fixer.process("recognize speech")
-
-    result = fixer.process("recognize spee")
-
-    assert result == "recognize spee"
+def test_empty_or_blank_text_inserts_nothing():
+    assert join("Привет.", "") == ""
+    assert join("Привет.", "   ") == ""
 
 
-def test_a_drop_below_the_shrink_ratio_is_still_treated_as_a_new_utterance():
-    fixer = SpacingFixer()
-    fixer.process("recognize speech")  # 17 characters
-
-    result = fixer.process("hi")  # far below the default 50% shrink ratio
-
-    assert result == " hi"
-
-
-def test_empty_text_is_returned_unchanged():
-    fixer = SpacingFixer()
-    fixer.process("hello world")
-
-    result = fixer.process("")
-
-    assert result == ""
-
-
-def test_empty_text_does_not_affect_whether_the_next_utterance_gets_a_space():
-    fixer = SpacingFixer()
-    fixer.process("hello world")
-    fixer.process("")
-
-    result = fixer.process("hi")
-
-    assert result == " hi"
-
-
-def test_empty_text_as_the_very_first_call_has_no_leading_space():
-    fixer = SpacingFixer()
-
-    result = fixer.process("")
-
-    assert result == ""
-
-
-def test_a_longer_utterance_after_a_short_one_gets_a_leading_space():
-    # "ok" then "thanks": the text never shrinks, only the first word changes.
-    fixer = SpacingFixer()
-    fixer.process("ok")
-
-    result = fixer.process("thanks")
-
-    assert result == " thanks"
+def test_surrounding_whitespace_is_trimmed():
+    assert join("Привет.", "  Как дела?  ") == " Как дела?"

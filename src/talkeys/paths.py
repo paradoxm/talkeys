@@ -4,19 +4,20 @@ import os
 import tempfile
 from pathlib import Path
 
-NERD_DIR = Path.home() / ".local/share/nerd-dictation"
+# Historical folder names from when Talkeys ran on nerd-dictation; kept so
+# existing installs and their bound hotkeys keep working.
+APP_DIR = Path.home() / ".local/share/nerd-dictation"
 CONFIG_DIR = Path.home() / ".config/nerd-dictation"
 
-NERD_DICTATION_BIN = NERD_DIR / "nerd-dictation/nerd-dictation"
-VENV_BIN_DIR = NERD_DIR / "venv/bin"
-VENV_PYTHON = VENV_BIN_DIR / "python"
+VENV_BIN_DIR = APP_DIR / "venv/bin"
 INDICATOR_BIN = VENV_BIN_DIR / "talkeys-indicator"
 TOGGLE_BIN = VENV_BIN_DIR / "talkeys-toggle"
 SWITCH_LANG_BIN = VENV_BIN_DIR / "talkeys-switch-lang"
-MODELS_DIR = NERD_DIR / "models"
+
+MODELS_DIR = APP_DIR / "models"
 
 LANG_FILE = CONFIG_DIR / "lang"
-LOG_FILE = NERD_DIR / "dictate.log"
+LOG_FILE = APP_DIR / "dictate.log"
 
 # A plain marker file, not a `pgrep` check, is the source of truth for
 # "is a recording session active": it's written synchronously while the
@@ -34,10 +35,7 @@ STATE_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir())
 RECORDING_MARKER = STATE_DIR / "dictate-recording.marker"
 TOGGLE_LOCK_FILE = STATE_DIR / "dictate-toggle.lock"
 
-MODEL_DIR_BY_LANG = {
-    "en": MODELS_DIR / "vosk-model-small-en-us-0.15",
-    "ru": MODELS_DIR / "vosk-model-small-ru-0.22",
-}
+LANGS = ("ru", "en")
 DEFAULT_LANG = "ru"
 
 
@@ -46,13 +44,10 @@ def get_lang() -> str:
         lang = LANG_FILE.read_text().strip()
     except FileNotFoundError:
         return DEFAULT_LANG
-    return lang if lang in MODEL_DIR_BY_LANG else DEFAULT_LANG
+    return lang if lang in LANGS else DEFAULT_LANG
 
 
 def set_lang(lang: str) -> None:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     LANG_FILE.write_text(lang + "\n")
 
-
-def model_dir_for_current_lang() -> Path:
-    return MODEL_DIR_BY_LANG[get_lang()]

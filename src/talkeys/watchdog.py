@@ -1,14 +1,9 @@
-"""Detects real silence via microphone RMS level, independently of
-nerd-dictation's own --timeout (which is unreliable: it compares raw VOSK
-JSON, and Kaldi's endpointer changes that JSON's shape on its own even
-during total silence, resetting the built-in timer).
+"""The session's one microphone capture: detects real silence via RMS level
+(to auto-stop) and feeds every chunk on to the dictation.
 
-Runs as a background thread inside the indicator process rather than a
-separate OS process: it needs its own `parec` capture either way, but
-folding it into the indicator means the silence-detected callback is a
-plain in-process function call (see indicator.py), not IPC back to the
-toggle command — and there's one fewer process for the toggle command to
-track and clean up.
+Runs as a background thread inside the indicator process, so the
+auto-stop callback is a plain in-process function call (see
+indicator.py), not IPC back to the toggle command.
 """
 import math
 import subprocess
@@ -19,7 +14,7 @@ from collections.abc import Callable
 from . import audio
 
 SAMPLE_RATE = 16000
-CHUNK_SECONDS = 0.5
+CHUNK_SECONDS = 0.2
 CHUNK_BYTES = int(SAMPLE_RATE * CHUNK_SECONDS) * 2  # 16-bit mono
 WINDOW_SECONDS = 0.1
 WINDOW_BYTES = int(SAMPLE_RATE * WINDOW_SECONDS) * 2
@@ -29,24 +24,36 @@ WINDOW_BYTES = int(SAMPLE_RATE * WINDOW_SECONDS) * 2
 # all in a noisy room. The baseline is this room's own ambient noise: the
 # quietest 0.1s window heard so far. Short windows catch the gaps between
 # words, so speech that starts right at the hotkey press can't be mistaken
-# for the room's noise floor (a fixed calibration second could be all
+# for the room's noise floor (a fixed first-second baseline could be all
 # speech). Anything under a few times that baseline counts as silence.
-SILENCE_RMS_FLOOR = 150.0
+SILENCE_RMS_FLOOR = 50.0
+# parec starts with a burst of exact zeros: digital emptiness, not the
+# room's noise. Counting it would pin the baseline to zero.
+DIGITAL_SILENCE_RMS = 5.0
 SILENCE_RMS_MULTIPLIER = 2.5
 SILENCE_SECONDS = 10.0
+# A session forgotten next to a TV or a conversation never goes silent and
+# would paste other people's speech for hours; end it after this long.
+MAX_SESSION_SECONDS = 120.0
 
 
 class SilenceWatchdog(threading.Thread):
-    """Captures the microphone independently of nerd-dictation and calls
-    `on_silence_detected` once real silence has lasted `SILENCE_SECONDS`.
+    """Captures the microphone, hands every chunk to `on_chunk` (with
+    whether it was silent), and calls `on_auto_stop` once real silence has
+    lasted `SILENCE_SECONDS` or the session has run `MAX_SESSION_SECONDS`.
 
     Call `.start()` to begin monitoring, `.stop()` to end it early (e.g.
     because the user pressed the toggle hotkey themselves).
     """
 
-    def __init__(self, on_silence_detected: Callable[[], None]):
+    def __init__(
+        self,
+        on_auto_stop: Callable[[], None],
+        on_chunk: Callable[[bytes, bool], None] = lambda _chunk, _silent: None,
+    ):
         super().__init__(daemon=True)
-        self._on_silence_detected = on_silence_detected
+        self._on_auto_stop = on_auto_stop
+        self._on_chunk = on_chunk
         self._process: subprocess.Popen | None = None
 
     def run(self) -> None:
@@ -72,26 +79,32 @@ class SilenceWatchdog(threading.Thread):
 
         ambient_rms = math.inf
         silent_since = None
+        session_start = time.monotonic()
         while True:
             data = microphone.read(CHUNK_BYTES)
             if not data:
                 return  # `parec` exited — most likely `.stop()` was called.
 
+            window_levels = [
+                audio.rms(data[start : start + WINDOW_BYTES])
+                for start in range(0, len(data) - WINDOW_BYTES + 1, WINDOW_BYTES)
+            ]
             ambient_rms = min(
-                [ambient_rms]
-                + [
-                    audio.rms(data[start : start + WINDOW_BYTES])
-                    for start in range(0, len(data) - WINDOW_BYTES + 1, WINDOW_BYTES)
-                ]
+                [ambient_rms] + [level for level in window_levels if level >= DIGITAL_SILENCE_RMS]
             )
             silence_threshold = max(SILENCE_RMS_FLOOR, ambient_rms * SILENCE_RMS_MULTIPLIER)
 
             now = time.monotonic()
-            if audio.rms(data) < silence_threshold:
+            silent = audio.rms(data) < silence_threshold
+            self._on_chunk(data, silent)
+            if now - session_start >= MAX_SESSION_SECONDS:
+                self._on_auto_stop()
+                return
+            if silent:
                 if silent_since is None:
                     silent_since = now
                 elif now - silent_since >= SILENCE_SECONDS:
-                    self._on_silence_detected()
+                    self._on_auto_stop()
                     return
             else:
                 silent_since = None

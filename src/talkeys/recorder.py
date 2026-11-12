@@ -1,6 +1,5 @@
-"""Starts/stops a dictation session: the indicator (which owns the silence
-watchdog as its own background thread — see watchdog.py) and nerd-dictation
-itself, guarded by a lock against concurrent toggle presses (X11 key-repeat
+"""Starts/stops a dictation session — the indicator process, which owns the
+microphone capture and the recognition (see indicator.py) — guarded by a lock against concurrent toggle presses (X11 key-repeat
 firing the hotkey many times a second while held down otherwise spawns
 dozens of orphaned processes)."""
 import fcntl
@@ -52,16 +51,14 @@ def start_recording() -> None:
         # anything to fork.
         paths.RECORDING_MARKER.write_text(str(indicator_process.pid))
 
-        _spawn_detached(_nerd_dictation_begin_command(), log_file)
-
 
 def stop_recording() -> None:
     """External stop: called by the toggle command when the user presses
-    the hotkey again, to end nerd-dictation and signal the indicator
-    process from the outside. The silence watchdog's own auto-stop does
-    *not* go through this function — see indicator.py, which ends the
-    session in-process (via `end_dictation()` alone) and quits itself
-    directly, since sending itself a signal would race its own shutdown."""
+    the hotkey again, to signal the indicator process from the outside; it
+    pastes the last phrase and exits. The silence watchdog's own auto-stop
+    does *not* go through this function — see indicator.py, which ends the
+    session in-process and quits itself directly, since sending itself a
+    signal would race its own shutdown."""
     indicator_pid = _read_indicator_pid()
     end_dictation()
     if indicator_pid is not None:
@@ -70,9 +67,6 @@ def stop_recording() -> None:
 
 def end_dictation() -> None:
     paths.RECORDING_MARKER.unlink(missing_ok=True)
-    subprocess.run(
-        [str(paths.VENV_PYTHON), str(paths.NERD_DICTATION_BIN), "end"], check=False
-    )
 
 
 def _read_indicator_pid() -> int | None:
@@ -87,19 +81,6 @@ def _terminate_process(pid: int) -> None:
         os.kill(pid, signal.SIGTERM)
     except ProcessLookupError:
         pass  # already gone
-
-
-def _nerd_dictation_begin_command() -> list:
-    return [
-        str(paths.VENV_PYTHON),
-        str(paths.NERD_DICTATION_BIN),
-        "begin",
-        f"--vosk-model-dir={paths.model_dir_for_current_lang()}",
-        "--simulate-input-tool=XDOTOOL",
-        "--continuous",
-        "--idle-time=0.3",
-        "--full-sentence",
-    ]
 
 
 def _spawn_detached(command: list, log_file: IO) -> subprocess.Popen:

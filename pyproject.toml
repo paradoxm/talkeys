@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "talkeys"
 version = "0.1.1"
-description = "Offline push-to-talk voice dictation for Linux, built on nerd-dictation + VOSK"
+description = "Offline push-to-talk voice dictation for Linux with punctuation (GigaAM-v3 / Parakeet via onnx-asr)"
 requires-python = ">=3.10"
 # GTK/GObject-introspection bindings (`gi`, `cairo`) come from the system
 # package manager (python3-gi, gir1.2-gtk-3.0, python3-gi-cairo — see
@@ -13,7 +13,13 @@ requires-python = ">=3.10"
 # headers, which most distros don't ship, and the apt package is already
 # a prebuilt binding against the system's own GTK. The venv is created
 # with --system-site-packages so it can still see them.
-dependencies = []
+dependencies = [
+    "onnx-asr[cpu,hub]",
+    # The venv sees system packages (for GTK), including Debian/Ubuntu's
+    # Brotli 1.1, which breaks huggingface_hub's model download
+    # ("process() takes no keyword arguments"); a venv-local copy wins.
+    "brotli>=1.2",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "ruff", "mypy"]
@@ -57,6 +63,11 @@ mypy_path = "src"
 # don't exist.
 [[tool.mypy.overrides]]
 module = "gi.*"
+ignore_missing_imports = true
+
+# onnxruntime ships no type stubs either.
+[[tool.mypy.overrides]]
+module = "onnxruntime.*"
 ignore_missing_imports = true
 
 [tool.semantic_release]
